@@ -1,0 +1,10 @@
+## .gitignore para .NET MAUI / C#
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+.DS_Store
+Thumbs.db
