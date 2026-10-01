@@ -1,4 +1,4 @@
-## 👁️ ¿Cómo visualizar los archivos `.puml`?
+## ¿Cómo visualizar los archivos `.puml`?
 
 Para editar los diagramas PlantUML en Visual Studio Code, sigue estos pasos:
 
