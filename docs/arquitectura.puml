@@ -1,0 +1,52 @@
+@startuml arquitectura_mvvm_di
+skinparam style strictuml
+skinparam classAttributeIconSize 0
+
+package "Views" {
+    class MainPage << (C,#A9DCDF) ContentPage >>
+    class DetallePage << (C,#A9DCDF) ContentPage >>
+}
+
+package "ViewModels" {
+    class MainViewModel << (C,#ADD1B2) INotifyPropertyChanged >> {
+        + Posts : ObservableCollection<Post>
+        + MensajeEstado : string
+        + ColorEstado : Color
+        + EstaOcupado : bool
+        + CargarPostsCommand : ICommand
+        + SeleccionarPostCommand : ICommand
+        + CargarPostsAsync() : Task
+    }
+
+    class DetalleViewModel << (C,#ADD1B2) IQueryAttributable >> {
+        + PostSeleccionado : Post
+        + ApplyQueryAttributes(query : IDictionary<string, object>) : void
+    }
+}
+
+package "Services" {
+    interface IPostService {
+        + ObtenerPostsAsync() : Task<ResultadoOperacion<List<Post>>>
+    }
+    class PostService implements IPostService {
+        - _httpClient : HttpClient
+        + ObtenerPostsAsync() : Task<ResultadoOperacion<List<Post>>>
+    }
+}
+
+package "Models" {
+    class Post {
+        + Id : int
+        + UserId : int
+        + Title : string
+        + Body : string
+    }
+}
+
+MainPage ..> MainViewModel : Data Binding / DI
+DetallePage ..> DetalleViewModel : Data Binding / DI
+MainViewModel --> IPostService : Inyección por constructor
+MainViewModel --> Post : Contiene colección
+DetalleViewModel --> Post : Expone modelo puro
+PostService ..> Post : Deserializa JSON
+@enduml
