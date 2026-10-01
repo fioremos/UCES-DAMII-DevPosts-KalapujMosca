@@ -1,0 +1,30 @@
+@startuml flujo_navegacion_parametros
+autonumber
+actor Usuario
+boundary MainPage as "MainPage (UI)"
+control MainViewModel as "MainViewModel"
+entity Shell as "Shell.Current"
+boundary DetallePage as "DetallePage (UI)"
+control DetalleViewModel as "DetalleViewModel"
+
+Usuario -> MainPage : Toca un ítem de la lista
+MainPage -> MainViewModel : Ejecuta SeleccionarPostCommand(post)
+activate MainViewModel
+
+note over MainViewModel
+  Se crea ShellNavigationQueryParameters
+  para paso de objetos complejos seguro y temporal
+end note
+
+MainViewModel -> Shell : GoToAsync(nameof(DetallePage), navigationParameter)
+deactivate MainViewModel
+
+Shell -> DetallePage : Instancia y navega (vía DI)
+Shell -> DetalleViewModel : ApplyQueryAttributes(query)
+activate DetalleViewModel
+DetalleViewModel -> DetalleViewModel : Asigna PostSeleccionado
+DetalleViewModel --> DetallePage : Actualiza BindingContext
+deactivate DetalleViewModel
+
+DetallePage --> Usuario : Muestra detalle del Post (Id, Title, Body)
+@enduml
