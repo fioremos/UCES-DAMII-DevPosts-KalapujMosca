@@ -17,15 +17,15 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
-        // 1. Registro de HttpClient y Servicios (Singleton)
+        // 1. Capa de Red y Servicios (Singleton: instancia única compartida)
         builder.Services.AddSingleton<HttpClient>();
         builder.Services.AddSingleton<IPostService, PostService>();
 
-        // 2. Registro de ViewModels (Transient: arranque limpio)
+        // 2. Capa de Presentación - ViewModels (Transient: instancia limpia por pantalla)
         builder.Services.AddTransient<MainViewModel>();
         builder.Services.AddTransient<DetalleViewModel>();
 
-        // 3. Registro de Páginas (Transient)
+        // 3. Capa de Presentación - Vistas (Transient: ciclo de vida vinculado a la navegación)
         builder.Services.AddTransient<MainPage>();
         builder.Services.AddTransient<DetallePage>();
 
