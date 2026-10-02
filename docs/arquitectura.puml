@@ -2,25 +2,44 @@
 skinparam style strictuml
 skinparam classAttributeIconSize 0
 
+package "CommunityToolkit.Mvvm" {
+    abstract class ObservableObject << (C,#DDA0DD) INotifyPropertyChanged >> {
+        + PropertyChanged : event
+        # SetProperty(...) : bool
+        # OnPropertyChanged(...) : void
+    }
+    interface IAsyncRelayCommand
+    interface "IAsyncRelayCommand<T>" as IAsyncRelayCommandT
+}
+
 package "Views" {
     class MainPage << (C,#A9DCDF) ContentPage >>
     class DetallePage << (C,#A9DCDF) ContentPage >>
 }
 
 package "ViewModels" {
-    class MainViewModel << (C,#ADD1B2) INotifyPropertyChanged >> {
+    class MainViewModel {
+        - _postService : IPostService
+        - _estaOcupado : bool
+        - _mensajeEstado : string
+        - _colorEstado : Color
         + Posts : ObservableCollection<Post>
+        + EstaOcupado : bool
+        + NoEstaOcupado : bool
         + MensajeEstado : string
         + ColorEstado : Color
-        + EstaOcupado : bool
-        + CargarPostsCommand : ICommand
-        + SeleccionarPostCommand : ICommand
-        + CargarPostsAsync() : Task
+        + CargarPostsCommand : IAsyncRelayCommand
+        + SeleccionarPostCommand : IAsyncRelayCommand<Post>
+        - CargarPostsAsync() : Task
+        - SeleccionarPostAsync(post : Post) : Task
     }
 
     class DetalleViewModel << (C,#ADD1B2) IQueryAttributable >> {
-        + PostSeleccionado : Post
+        - _post : Post
+        + Post : Post
+        + VolverCommand : IAsyncRelayCommand
         + ApplyQueryAttributes(query : IDictionary<string, object>) : void
+        - VolverAsync() : Task
     }
 }
 
@@ -30,7 +49,9 @@ package "Services" {
     }
     class PostService implements IPostService {
         - _httpClient : HttpClient
+        - ApiUrl : string
         + ObtenerPostsAsync() : Task<ResultadoOperacion<List<Post>>>
+        - ClasificarErrorHttp(codigo : HttpStatusCode) : ResultadoOperacion<List<Post>>
     }
 }
 
@@ -41,12 +62,42 @@ package "Models" {
         + Title : string
         + Body : string
     }
+
+    class "ResultadoOperacion<T>" as ResultadoOperacion {
+        + Exitoso : bool
+        + Datos : T
+        + Mensaje : string
+        + Error : TipoError
+        + {static} Ok(datos : T, mensaje : string) : ResultadoOperacion<T>
+        + {static} Fallo(mensaje : string, tipoError : TipoError) : ResultadoOperacion<T>
+    }
+
+    enum TipoError {
+        Ninguno
+        SinConexion
+        ErrorServidor
+        ErrorCliente
+        FormatoInvalido
+    }
 }
 
+' Herencias de MVVM Toolkit
+ObservableObject <|-- MainViewModel
+ObservableObject <|-- DetalleViewModel
+
+' Vistas y Enlace de Datos
 MainPage ..> MainViewModel : Data Binding / DI
 DetallePage ..> DetalleViewModel : Data Binding / DI
+
+' Dependencias de ViewModels
 MainViewModel --> IPostService : Inyección por constructor
-MainViewModel --> Post : Contiene colección
-DetalleViewModel --> Post : Expone modelo puro
+MainViewModel o-- Post : Colección reactiva
+MainViewModel ..> IAsyncRelayCommand : Expone comandos
+DetalleViewModel o-- Post : Expone modelo puro
+DetalleViewModel ..> IAsyncRelayCommand : Expone comando
+
+' Capa de Servicio y Dominio
 PostService ..> Post : Deserializa JSON
+PostService ..> ResultadoOperacion : Retorna
+ResultadoOperacion --> TipoError : Clasifica con
 @enduml

@@ -22,7 +22,7 @@ deactivate MainViewModel
 Shell -> DetallePage : Instancia y navega (vía DI)
 Shell -> DetalleViewModel : ApplyQueryAttributes(query)
 activate DetalleViewModel
-DetalleViewModel -> DetalleViewModel : Asigna PostSeleccionado
+DetalleViewModel -> DetalleViewModel : Asigna Post
 DetalleViewModel --> DetallePage : Actualiza BindingContext
 deactivate DetalleViewModel
 
