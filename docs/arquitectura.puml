@@ -29,14 +29,14 @@ package "ViewModels" {
         + MensajeEstado : string
         + ColorEstado : Color
         + CargarPostsCommand : IAsyncRelayCommand
-        + SeleccionarPostCommand : IAsyncRelayCommand<Post>
+        + SeleccionarPostCommand : IAsyncRelayCommand<Post?>
         - CargarPostsAsync() : Task
-        - SeleccionarPostAsync(post : Post) : Task
+        - SeleccionarPostAsync(post : Post?) : Task
     }
 
     class DetalleViewModel << (C,#ADD1B2) IQueryAttributable >> {
-        - _post : Post
-        + Post : Post
+        - _post : Post?
+        + Post : Post?
         + VolverCommand : IAsyncRelayCommand
         + ApplyQueryAttributes(query : IDictionary<string, object>) : void
         - VolverAsync() : Task

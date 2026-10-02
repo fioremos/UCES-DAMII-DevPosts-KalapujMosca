@@ -7,24 +7,35 @@ entity Shell as "Shell.Current"
 boundary DetallePage as "DetallePage (UI)"
 control DetalleViewModel as "DetalleViewModel"
 
-Usuario -> MainPage : Toca un ítem de la lista
+== Navegación hacia el Detalle ==
+Usuario -> MainPage : Toca tarjeta de publicación (SelectionChanged)
 MainPage -> MainViewModel : Ejecuta SeleccionarPostCommand(post)
 activate MainViewModel
 
 note over MainViewModel
-  Se crea ShellNavigationQueryParameters
-  para paso de objetos complejos seguro y temporal
+  Instancia ShellNavigationQueryParameters (parametros)
+  con clave "PostSeleccionado" y referencia a post
 end note
 
-MainViewModel -> Shell : GoToAsync(nameof(DetallePage), navigationParameter)
+MainViewModel -> Shell : GoToAsync("DetallePage", parametros)
 deactivate MainViewModel
 
-Shell -> DetallePage : Instancia y navega (vía DI)
+Shell -> DetallePage : Resuelve e inicializa (DI)
 Shell -> DetalleViewModel : ApplyQueryAttributes(query)
 activate DetalleViewModel
-DetalleViewModel -> DetalleViewModel : Asigna Post
-DetalleViewModel --> DetallePage : Actualiza BindingContext
+DetalleViewModel -> DetalleViewModel : Extrae "PostSeleccionado" y asigna a Post
+DetalleViewModel --> DetallePage : Notifica cambio vía PropertyChanged
 deactivate DetalleViewModel
 
-DetallePage --> Usuario : Muestra detalle del Post (Id, Title, Body)
+DetallePage --> Usuario : Renderiza publicación completa (Id, Autor, Title, Body)
+
+== Retorno al Listado ==
+Usuario -> DetallePage : Toca "← Volver al Listado"
+DetallePage -> DetalleViewModel : Ejecuta VolverCommand
+activate DetalleViewModel
+DetalleViewModel -> Shell : GoToAsync("..")
+deactivate DetalleViewModel
+
+Shell -> MainPage : Regresa al tope de la pila
+MainPage --> Usuario : Mantiene listado y estado previo intactos
 @enduml
