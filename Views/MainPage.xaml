@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:DevPostsApp.ViewModels"
+             xmlns:models="clr-namespace:DevPostsApp.Models"
+             x:Class="DevPostsApp.Views.MainPage"
+             x:DataType="vm:MainViewModel"
+             Title="DevPosts Reader"
+             BackgroundColor="{AppThemeBinding Light=#F4F6F9, Dark=#0D1117}">
+
+    <Grid RowDefinitions="Auto, Auto, Auto, *" Padding="16" RowSpacing="12">
+
+        <!-- 1. Encabezado informativo -->
+        <VerticalStackLayout Grid.Row="0" Spacing="4">
+            <Label Text="Publicaciones Técnicas"
+                   FontSize="22"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light=#1F2937, Dark=#F3F4F6}" />
+            <Label Text="Cliente REST con arquitectura MVVM y .NET MAUI"
+                   FontSize="13"
+                   TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+        </VerticalStackLayout>
+
+        <!-- 2. Botón de acción principal -->
+        <Button Grid.Row="1"
+                Text="Cargar Publicaciones"
+                Command="{Binding CargarPostsCommand}"
+                FontAttributes="Bold"
+                CornerRadius="8"
+                HeightRequest="48"
+                BackgroundColor="#2563EB"
+                TextColor="White" />
+
+        <!-- 3. Indicador de carga y Banner de estado contextual -->
+        <VerticalStackLayout Grid.Row="2" Spacing="8">
+            <ActivityIndicator IsRunning="{Binding EstaOcupado}"
+                               IsVisible="{Binding EstaOcupado}"
+                               Color="#2563EB"
+                               HorizontalOptions="Center" />
+
+            <Border Stroke="{Binding ColorEstado}"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 8"
+                    Padding="12,10"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#161B22}">
+                <Label Text="{Binding MensajeEstado}"
+                       TextColor="{Binding ColorEstado}"
+                       FontSize="13"
+                       FontAttributes="Bold"
+                       HorizontalTextAlignment="Center" />
+            </Border>
+        </VerticalStackLayout>
+
+        <!-- 4. Listado de artículos (CollectionView) -->
+        <CollectionView Grid.Row="3"
+                        ItemsSource="{Binding Posts}"
+                        SelectionMode="Single"
+                        SelectionChangedCommand="{Binding SeleccionarPostCommand}"
+                        SelectionChangedCommandParameter="{Binding Source={RelativeSource Self}, Path=SelectedItem}">
+            
+            <CollectionView.EmptyView>
+                <VerticalStackLayout Spacing="8" HorizontalOptions="Center" VerticalOptions="Center" Padding="20">
+                    <Label Text="No hay publicaciones para mostrar."
+                           FontSize="15"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+                    <Label Text="Presione el botón superior para realizar la petición HTTP."
+                           FontSize="13"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{AppThemeBinding Light=#9CA3AF, Dark=#6B7280}" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="models:Post">
+                    <Grid Padding="0,4">
+                        <Border StrokeShape="RoundRectangle 10"
+                                Stroke="{AppThemeBinding Light=#E5E7EB, Dark=#30363D}"
+                                StrokeThickness="1"
+                                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#161B22}"
+                                Padding="14">
+                            <VerticalStackLayout Spacing="6">
+                                <HorizontalStackLayout Spacing="8">
+                                    <Label Text="{Binding Id, StringFormat='#{0}'}"
+                                           FontSize="12"
+                                           FontAttributes="Bold"
+                                           TextColor="#2563EB" />
+                                    <Label Text="{Binding UserId, StringFormat='Autor ID: {0}'}"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light=#6B7280, Dark=#9CA3AF}" />
+                                </HorizontalStackLayout>
+
+                                <Label Text="{Binding Title}"
+                                       FontSize="15"
+                                       FontAttributes="Bold"
+                                       LineBreakMode="TailTruncation"
+                                       MaxLines="2"
+                                       TextColor="{AppThemeBinding Light=#111827, Dark=#F9FAFB}" />
+
+                                <Label Text="{Binding Body}"
+                                       FontSize="13"
+                                       LineBreakMode="TailTruncation"
+                                       MaxLines="3"
+                                       TextColor="{AppThemeBinding Light=#4B5563, Dark=#D1D5DB}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+    </Grid>
+</ContentPage>
