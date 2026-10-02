@@ -23,9 +23,11 @@ public static class MauiProgram
 
         // 2. Registro de ViewModels (Transient: arranque limpio)
         builder.Services.AddTransient<MainViewModel>();
+        builder.Services.AddTransient<DetalleViewModel>();
 
         // 3. Registro de Páginas (Transient)
         builder.Services.AddTransient<MainPage>();
+        builder.Services.AddTransient<DetallePage>();
 
         return builder.Build();
     }
