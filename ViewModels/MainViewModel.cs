@@ -1,69 +1,82 @@
 using System.Collections.ObjectModel;
-using System.Windows.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using DevPostsApp.Models;
 using DevPostsApp.Services;
 
 namespace DevPostsApp.ViewModels;
 
-public class MainViewModel : BaseViewModel
+/// <summary>
+/// ViewModel responsable de la lógica de presentación y orquestación de la pantalla principal (<see cref="Views.MainPage"/>).
+/// Hereda de <see cref="ObservableObject"/> del CommunityToolkit.Mvvm para gestión reactiva de estado mediante Source Generators,
+/// y consume el servicio de red desacoplado <see cref="IPostService"/> a través de Inyección de Dependencias.
+/// </summary>
+public partial class MainViewModel : ObservableObject
 {
     private readonly IPostService _postService;
 
+    /// <summary>
+    /// Campo de respaldo para el indicador de actividad y bloqueo de interacción.
+    /// Mediante Source Generators, genera la propiedad pública reactiva <c>EstaOcupado</c>.
+    /// Notifica automáticamente a la propiedad calculada <see cref="NoEstaOcupado"/> y
+    /// reevalúa la condición de ejecución de <see cref="CargarPostsCommand"/>.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NoEstaOcupado))]
+    [NotifyCanExecuteChangedFor(nameof(CargarPostsCommand))]
     private bool _estaOcupado;
-    private string _mensajeEstado = "Presione el botón para consultar publicaciones.";
-    private Color _colorEstado = Colors.Gray;
 
-    public ObservableCollection<Post> Posts { get; } = new();
-
-    public bool EstaOcupado
-    {
-        get => _estaOcupado;
-        set
-        {
-            if (SetProperty(ref _estaOcupado, value))
-            {
-                // Notificamos que la propiedad inversa también cambió para habilitar/deshabilitar controles
-                OnPropertyChanged(nameof(NoEstaOcupado));
-            }
-        }
-    }
-
+    /// <summary>
+    /// Propiedad booleana inversa a <see cref="EstaOcupado"/> empleada como guarda declarativa (CanExecute)
+    /// para deshabilitar el botón de carga mientras una operación asíncrona de red esté en curso.
+    /// </summary>
     public bool NoEstaOcupado => !EstaOcupado;
 
-    public string MensajeEstado
-    {
-        get => _mensajeEstado;
-        set => SetProperty(ref _mensajeEstado, value);
-    }
+    /// <summary>
+    /// Mensaje textual contextual exhibido en la interfaz para informar al usuario sobre
+    /// la acción requerida, el progreso en curso, el éxito de la consulta o la causa del fallo.
+    /// Genera la propiedad pública <c>MensajeEstado</c>.
+    /// </summary>
+    [ObservableProperty]
+    private string _mensajeEstado = "Presione el botón para consultar publicaciones.";
 
-    public Color ColorEstado
-    {
-        get => _colorEstado;
-        set => SetProperty(ref _colorEstado, value);
-    }
+    /// <summary>
+    /// Color contextual dinámico asignado al mensaje y al borde del banner en la vista.
+    /// Asigna verde para éxito, rojo para desconexión o timeout, y naranja para errores HTTP.
+    /// Genera la propiedad pública <c>ColorEstado</c>.
+    /// </summary>
+    [ObservableProperty]
+    private Color _colorEstado = Colors.Gray;
 
-    public ICommand CargarPostsCommand { get; }
-    public ICommand SeleccionarPostCommand { get; }
+    /// <summary>
+    /// Colección reactiva de publicaciones mostrada en el <see cref="CollectionView"/> de la vista.
+    /// Notifica dinámicamente adiciones o limpiezas de elementos sin reconstruir la colección completa.
+    /// </summary>
+    public ObservableCollection<Post> Posts { get; } = new();
 
-    // Constructor que recibe el servicio mediante Inyección de Dependencias
+    /// <summary>
+    /// Inicializa una nueva instancia de <see cref="MainViewModel"/> resolviendo sus dependencias mediante el contenedor de DI.
+    /// </summary>
+    /// <param name="postService">Contrato de servicio para operaciones de red contra la API de publicaciones.</param>
     public MainViewModel(IPostService postService)
     {
         _postService = postService;
-
-        CargarPostsCommand = new Command(async () => await CargarPostsAsync(), () => NoEstaOcupado);
-        SeleccionarPostCommand = new Command<Post>(async (post) => await NavegarADetalleAsync(post));
     }
 
-    public async Task CargarPostsAsync()
+    /// <summary>
+    /// Orquesta la petición asíncrona a la API REST de publicaciones, actualizando los estados visuales,
+    /// poblando la colección <see cref="Posts"/> y mapeando la respuesta del servicio con códigos de color contextuales.
+    /// Genera automáticamente la propiedad pública <c>CargarPostsCommand</c> de tipo <see cref="IAsyncRelayCommand"/>.
+    /// </summary>
+    /// <returns>Tarea asíncrona que representa el ciclo completo de consulta y actualización de interfaz.</returns>
+    [RelayCommand(CanExecute = nameof(NoEstaOcupado))]
+    private async Task CargarPostsAsync()
     {
         if (EstaOcupado) return;
 
         EstaOcupado = true;
         MensajeEstado = "Consultando servicio remoto...";
         ColorEstado = Colors.DodgerBlue;
-
-        // Actualizamos el estado del botón
-        ((Command)CargarPostsCommand).ChangeCanExecute();
 
         try
         {
@@ -84,12 +97,12 @@ public class MainViewModel : BaseViewModel
             {
                 MensajeEstado = resultado.Mensaje;
 
-                // Color contextual según el tipo de falla detectado
+                // Mapeo semántico de error a color de interfaz
                 ColorEstado = resultado.Error switch
                 {
-                    TipoError.SinConexion => Colors.Crimson,       // Rojo para problemas de red/timeout
-                    TipoError.ErrorServidor => Colors.DarkOrange,   // Naranja para 500/servidor
-                    TipoError.ErrorCliente => Colors.OrangeRed,     // Naranja rojizo para 400/404
+                    TipoError.SinConexion => Colors.Crimson,       // Rojo para fallos de conectividad y timeout
+                    TipoError.ErrorServidor => Colors.DarkOrange,   // Naranja para errores 5xx del servidor
+                    TipoError.ErrorCliente => Colors.OrangeRed,     // Naranja rojizo para errores 4xx del cliente
                     _ => Colors.DarkRed
                 };
             }
@@ -102,16 +115,21 @@ public class MainViewModel : BaseViewModel
         finally
         {
             EstaOcupado = false;
-            ((Command)CargarPostsCommand).ChangeCanExecute();
         }
     }
 
-    private async Task NavegarADetalleAsync(Post? post)
+    /// <summary>
+    /// Gestiona la transición hacia la vista de detalle (<see cref="Views.DetallePage"/>) transfiriendo
+    /// la entidad seleccionada <see cref="Post"/> completa a través de <see cref="ShellNavigationQueryParameters"/>.
+    /// Genera automáticamente la propiedad pública <c>SeleccionarPostCommand</c> de tipo <see cref="IAsyncRelayCommand{Post}"/>.
+    /// </summary>
+    /// <param name="post">Publicación seleccionada por el usuario desde la lista.</param>
+    /// <returns>Tarea asíncrona que representa la navegación por rutas de Shell.</returns>
+    [RelayCommand]
+    private async Task SeleccionarPostAsync(Post? post)
     {
         if (post == null) return;
 
-        // En la Fase 4 configuraremos la ruta Shell y el paso del objeto
-        // Dejamos preparado el método para conectar en cuanto creemos DetallePage
         var parametros = new ShellNavigationQueryParameters
         {
             { "PostSeleccionado", post }
