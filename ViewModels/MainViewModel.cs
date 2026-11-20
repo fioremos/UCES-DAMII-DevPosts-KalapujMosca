@@ -54,6 +54,15 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<Post> Posts { get; } = new();
 
+    [ObservableProperty]
+    private string _nuevoTitulo = string.Empty;
+
+    [ObservableProperty]
+    private string _nuevoCuerpo = string.Empty;
+
+    [ObservableProperty]
+    private bool _mostrarFormulario;
+
     /// <summary>
     /// Inicializa una nueva instancia de <see cref="MainViewModel"/> resolviendo sus dependencias mediante el contenedor de DI.
     /// </summary>
@@ -61,6 +70,12 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel(IPostService postService)
     {
         _postService = postService;
+    }
+
+    [RelayCommand]
+    private void AlternarFormulario()
+    {
+        MostrarFormulario = !MostrarFormulario;
     }
 
     /// <summary>
@@ -111,6 +126,45 @@ public partial class MainViewModel : ObservableObject
         {
             MensajeEstado = $"Error no controlado en la aplicación: {ex.Message}";
             ColorEstado = Colors.Crimson;
+        }
+        finally
+        {
+            EstaOcupado = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(NoEstaOcupado))]
+    private async Task CrearPostAsync()
+    {
+        EstaOcupado = true;
+
+        try
+        {
+            var nuevoPost = new Post
+            {
+                UserId = 1,
+                Title = NuevoTitulo.Trim(),
+                Body = NuevoCuerpo.Trim(),
+                EsFavorito = true
+            };
+
+            var resultado = await _postService.CrearPostLocalAsync(nuevoPost);
+
+            if (resultado.Exitoso && resultado.Datos is not null)
+            {
+                Posts.Insert(0, resultado.Datos);
+                NuevoTitulo = string.Empty;
+                NuevoCuerpo = string.Empty;
+                MostrarFormulario = false;
+                MensajeEstado = resultado.Mensaje;
+                ColorEstado = Colors.SeaGreen;
+            }
+            else
+            {
+                // Muestra el error devuelto por ValidadorPost
+                MensajeEstado = resultado.Mensaje;
+                ColorEstado = Colors.Crimson;
+            }
         }
         finally
         {
