@@ -1,106 +1,125 @@
 using System.Net;
 using System.Text.Json;
 using DevPostsApp.Models;
+using DevPostsApp.Repositories;
+using DevPostsApp.Validators;
 
 namespace DevPostsApp.Services;
 
 public class PostService : IPostService
 {
     private readonly HttpClient _httpClient;
+    private readonly IPostRepository _postRepository;
     private const string ApiUrl = "https://jsonplaceholder.typicode.com/posts";
 
-    // Recibe HttpClient por inyeccion de dependencias para evitar agotamiento de sockets
-    public PostService(HttpClient httpClient)
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    public PostService(HttpClient httpClient, IPostRepository postRepository)
     {
         _httpClient = httpClient;
-        _httpClient.Timeout = TimeSpan.FromSeconds(10); // Tiempo limite de 10 segundos
+        _postRepository = postRepository;
     }
 
     public async Task<ResultadoOperacion<List<Post>>> ObtenerPostsAsync()
     {
         try
         {
-            // 1. Petición GET asíncrona
             using var respuesta = await _httpClient.GetAsync(ApiUrl);
 
-            // 2. Verificación del código de estado HTTP
-            if (!respuesta.IsSuccessStatusCode)
+            if (respuesta.IsSuccessStatusCode)
             {
-                return ClasificarErrorHttp(respuesta.StatusCode);
+                var contenido = await respuesta.Content.ReadAsStringAsync();
+                var postsRemotos = JsonSerializer.Deserialize<List<Post>>(contenido, _jsonOptions) ?? new();
+
+                // Filtramos solo los posts válidos y los persistimos en lote en SQLite
+                var postsValidos = postsRemotos
+                    .Where(p => ValidadorPost.Validar(p, out _))
+                    .ToList();
+
+                await _postRepository.GuardarLoteAsync(postsValidos);
+
+                // Devolvemos la lectura consolidada desde SQLite (incluye los creados localmente)
+                var todosLosPosts = await _postRepository.ObtenerTodosAsync();
+                return ResultadoOperacion<List<Post>>.Ok(
+                    todosLosPosts.OrderByDescending(p => p.Id).ToList(),
+                    $"Sincronizado correctamente ({todosLosPosts.Count} publicaciones)."
+                );
             }
 
-            // 3. Lectura del contenido
-            var contenidoJson = await respuesta.Content.ReadAsStringAsync();
-
-            // 4. Deserializacion segura
-            var opciones = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-
-            var posts = JsonSerializer.Deserialize<List<Post>>(contenidoJson, opciones);
-
-            if (posts == null || posts.Count == 0)
-            {
-                return ResultadoOperacion<List<Post>>.Fallo(
-                    "No se encontraron publicaciones disponibles.",
-                    TipoError.ErrorServidor);
-            }
-
-            return ResultadoOperacion<List<Post>>.Ok(
-                posts,
-                $"Se cargaron {posts.Count} publicaciones correctamente.");
+            // Si el servidor devolvió error HTTP (4xx / 5xx), intentamos respaldo local
+            return await RecuperarDesdeCacheLocalAsync(
+                $"El servidor respondió {(int)respuesta.StatusCode}. Mostrando datos locales.",
+                ClasificarTipoErrorHttp(respuesta.StatusCode)
+            );
+        }
+        catch (HttpRequestException)
+        {
+            return await RecuperarDesdeCacheLocalAsync(
+                "Sin conexión a internet. Mostrando publicaciones guardadas offline.",
+                TipoError.SinConexion
+            );
         }
         catch (TaskCanceledException)
         {
-            // Ocurre cuando se agota el tiempo de espera (Timeout)
-            return ResultadoOperacion<List<Post>>.Fallo(
-                "La solicitud tardó demasiado tiempo en responder (Timeout). Verifique su conexión.",
-                TipoError.SinConexion);
-        }
-        catch (HttpRequestException ex)
-        {
-            // Ocurre cuando el dispositivo no tiene internet, falla el DNS o la red se interrumpe
-            return ResultadoOperacion<List<Post>>.Fallo(
-                $"Fallo de red: No fue posible conectar con el servidor ({ex.Message}).",
-                TipoError.SinConexion);
-        }
-        catch (JsonException)
-        {
-            // Ocurre si la API devuelve texto plano, HTML o JSON corrupto
-            return ResultadoOperacion<List<Post>>.Fallo(
-                "Error de formato: Los datos recibidos no tienen la estructura esperada.",
-                TipoError.FormatoInvalido);
+            return await RecuperarDesdeCacheLocalAsync(
+                "Tiempo de espera agotado. Mostrando publicaciones guardadas offline.",
+                TipoError.SinConexion
+            );
         }
         catch (Exception ex)
         {
-            // Captura de respaldo ante cualquier imprevisto
             return ResultadoOperacion<List<Post>>.Fallo(
-                $"Ocurrió un error inesperado: {ex.Message}",
-                TipoError.ErrorServidor);
+                $"Error inesperado al procesar datos: {ex.Message}",
+                TipoError.FormatoInvalido
+            );
         }
     }
 
-    private static ResultadoOperacion<List<Post>> ClasificarErrorHttp(HttpStatusCode codigo)
+    public async Task<ResultadoOperacion<Post>> CrearPostLocalAsync(Post nuevoPost)
     {
-        int codigoNum = (int)codigo;
-
-        if (codigoNum >= 500)
+        // 1. Validación centralizada de dominio antes de tocar la base de datos
+        if (!ValidadorPost.Validar(nuevoPost, out string mensajeError))
         {
-            return ResultadoOperacion<List<Post>>.Fallo(
-                $"Error del servidor ({codigoNum}): El servicio externo está experimentando problemas.",
-                TipoError.ErrorServidor);
+            return ResultadoOperacion<Post>.Fallo(mensajeError, TipoError.ErrorCliente);
         }
 
-        if (codigo == HttpStatusCode.NotFound)
+        // 2. Generación de ID incremental si es una creación nueva (Id == 0)
+        if (nuevoPost.Id <= 0)
         {
-            return ResultadoOperacion<List<Post>>.Fallo(
-                "Recurso no encontrado (Error 404): La dirección de publicaciones no existe.",
-                TipoError.ErrorCliente);
+            var existentes = await _postRepository.ObtenerTodosAsync();
+            nuevoPost.Id = existentes.Count > 0 ? existentes.Max(p => p.Id) + 1 : 101;
+        }
+
+        await _postRepository.GuardarAsync(nuevoPost);
+        return ResultadoOperacion<Post>.Ok(nuevoPost, "Publicación guardada correctamente en SQLite.");
+    }
+
+    private async Task<ResultadoOperacion<List<Post>>> RecuperarDesdeCacheLocalAsync(
+        string mensajeOffline,
+        TipoError tipoErrorOriginal)
+    {
+        var locales = await _postRepository.ObtenerTodosAsync();
+
+        if (locales.Count > 0)
+        {
+            return ResultadoOperacion<List<Post>>.Ok(
+                locales.OrderByDescending(p => p.Id).ToList(),
+                $"{mensajeOffline} ({locales.Count} registros)."
+            );
         }
 
         return ResultadoOperacion<List<Post>>.Fallo(
-            $"Error en la solicitud ({codigoNum} {codigo}): No se pudo completar la operación.",
-            TipoError.ErrorCliente);
+            "No hay conexión y tampoco existen publicaciones guardadas en el dispositivo.",
+            tipoErrorOriginal
+        );
+    }
+
+    private static TipoError ClasificarTipoErrorHttp(HttpStatusCode statusCode)
+    {
+        int codigo = (int)statusCode;
+        return codigo >= 500 ? TipoError.ErrorServidor : TipoError.ErrorCliente;
     }
 }
