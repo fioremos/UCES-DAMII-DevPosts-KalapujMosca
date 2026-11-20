@@ -23,7 +23,7 @@
                     TextColor="White" />
         </Grid>
 
-        <!-- Formulario colapsable para alta local con validación -->
+        <!-- Formulario colapsable para alta local con validación y hardware -->
         <Frame Grid.Row="1"
                IsVisible="{Binding MostrarFormulario}"
                Padding="12"
@@ -36,6 +36,35 @@
                 <Editor Placeholder="Contenido de la publicación (mínimo 10 caracteres)"
                         Text="{Binding NuevoCuerpo}"
                         HeightRequest="80" />
+
+                <!-- Acciones de Hardware: Cámara/Galería y Ubicación GPS -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Button Grid.Column="0"
+                            Text="Adjuntar Foto"
+                            Command="{Binding AdjuntarFotoCommand}"
+                            IsEnabled="{Binding NoEstaOcupado}"
+                            BackgroundColor="#4A6572"
+                            TextColor="White" />
+                    <Button Grid.Column="1"
+                            Text="Ubicación GPS"
+                            Command="{Binding CapturarUbicacionCommand}"
+                            IsEnabled="{Binding NoEstaOcupado}"
+                            BackgroundColor="#4A6572"
+                            TextColor="White" />
+                </Grid>
+
+                <!-- Vista previa de foto adjunta y coordenadas capturadas -->
+                <Image Source="{Binding RutaImagenAdjunta}"
+                       IsVisible="{Binding TieneImagenAdjunta}"
+                       HeightRequest="120"
+                       Aspect="AspectFit" />
+
+                <Label Text="{Binding UbicacionCapturada, StringFormat='Ubicación: {0}'}"
+                       IsVisible="{Binding TieneUbicacion}"
+                       FontSize="12"
+                       TextColor="Teal"
+                       FontAttributes="Bold" />
+
                 <Button Text="Guardar en SQLite"
                         Command="{Binding CrearPostCommand}"
                         IsEnabled="{Binding NoEstaOcupado}"
@@ -65,7 +94,7 @@
                     <Frame Margin="0,0,0,10" Padding="12" CornerRadius="8">
                         <Frame.GestureRecognizers>
                             <TapGestureRecognizer
-                                Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MainViewModel}}, Path=IrADetalleCommand}"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MainViewModel}}, Path=SeleccionarPostCommand}"
                                 CommandParameter="{Binding .}" />
                         </Frame.GestureRecognizers>
                         <VerticalStackLayout Spacing="4">

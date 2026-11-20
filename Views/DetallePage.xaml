@@ -71,6 +71,16 @@
                            LineHeight="1.4"
                            TextColor="{AppThemeBinding Light=#374151, Dark=#D1D5DB}" />
 
+                    <!-- Metadatos de Hardware (Ubicación GPS y Fotografía adjunta) -->
+                    <Label Text="{Binding Post.UbicacionGps, StringFormat='📍 Ubicación registrada: {0}'}"
+                           FontSize="13"
+                           FontAttributes="Bold"
+                           TextColor="#0D9488" />
+
+                    <Image Source="{Binding Post.RutaImagenLocal}"
+                           HeightRequest="220"
+                           Aspect="AspectFit" />
+               
                 </VerticalStackLayout>
             </Border>
 
