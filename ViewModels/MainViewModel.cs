@@ -9,26 +9,30 @@ namespace DevPostsApp.ViewModels;
 /// <summary>
 /// ViewModel responsable de la lógica de presentación y orquestación de la pantalla principal (<see cref="Views.MainPage"/>).
 /// Hereda de <see cref="ObservableObject"/> del CommunityToolkit.Mvvm para gestión reactiva de estado mediante Source Generators,
-/// y consume el servicio de red desacoplado <see cref="IPostService"/> a través de Inyección de Dependencias.
+/// y consume los servicios desacoplados <see cref="IPostService"/> e <see cref="IHardwareService"/> a través de Inyección de Dependencias.
 /// </summary>
 public partial class MainViewModel : ObservableObject
 {
     private readonly IPostService _postService;
+    private readonly IHardwareService _hardwareService;
 
     /// <summary>
     /// Campo de respaldo para el indicador de actividad y bloqueo de interacción.
     /// Mediante Source Generators, genera la propiedad pública reactiva <c>EstaOcupado</c>.
     /// Notifica automáticamente a la propiedad calculada <see cref="NoEstaOcupado"/> y
-    /// reevalúa la condición de ejecución de <see cref="CargarPostsCommand"/>.
+    /// reevalúa la condición de ejecución de los comandos asíncronos.
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(NoEstaOcupado))]
     [NotifyCanExecuteChangedFor(nameof(CargarPostsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CrearPostCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AdjuntarFotoCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CapturarUbicacionCommand))]
     private bool _estaOcupado;
 
     /// <summary>
     /// Propiedad booleana inversa a <see cref="EstaOcupado"/> empleada como guarda declarativa (CanExecute)
-    /// para deshabilitar el botón de carga mientras una operación asíncrona de red esté en curso.
+    /// para deshabilitar los botones mientras una operación asíncrona esté en curso.
     /// </summary>
     public bool NoEstaOcupado => !EstaOcupado;
 
@@ -63,13 +67,27 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _mostrarFormulario;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneImagenAdjunta))]
+    private string? _rutaImagenAdjunta;
+
+    public bool TieneImagenAdjunta => !string.IsNullOrWhiteSpace(RutaImagenAdjunta);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneUbicacion))]
+    private string? _ubicacionCapturada;
+
+    public bool TieneUbicacion => !string.IsNullOrWhiteSpace(UbicacionCapturada);
+
     /// <summary>
     /// Inicializa una nueva instancia de <see cref="MainViewModel"/> resolviendo sus dependencias mediante el contenedor de DI.
     /// </summary>
-    /// <param name="postService">Contrato de servicio para operaciones de red contra la API de publicaciones.</param>
-    public MainViewModel(IPostService postService)
+    /// <param name="postService">Contrato de servicio para operaciones de red y persistencia SQLite de publicaciones.</param>
+    /// <param name="hardwareService">Contrato de abstracción para acceso a cámara/galería, GPS y vibración.</param>
+    public MainViewModel(IPostService postService, IHardwareService hardwareService)
     {
         _postService = postService;
+        _hardwareService = hardwareService;
     }
 
     [RelayCommand]
@@ -78,9 +96,65 @@ public partial class MainViewModel : ObservableObject
         MostrarFormulario = !MostrarFormulario;
     }
 
+    [RelayCommand(CanExecute = nameof(NoEstaOcupado))]
+    private async Task AdjuntarFotoAsync()
+    {
+        EstaOcupado = true;
+        MensajeEstado = "Accediendo a cámara / galería...";
+        ColorEstado = Colors.DodgerBlue;
+
+        try
+        {
+            var resultado = await _hardwareService.CapturarOSeleccionarFotoAsync();
+            if (resultado.Exitoso && !string.IsNullOrWhiteSpace(resultado.Datos))
+            {
+                RutaImagenAdjunta = resultado.Datos;
+                MensajeEstado = resultado.Mensaje;
+                ColorEstado = Colors.ForestGreen;
+            }
+            else
+            {
+                MensajeEstado = resultado.Mensaje;
+                ColorEstado = Colors.DarkOrange;
+            }
+        }
+        finally
+        {
+            EstaOcupado = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(NoEstaOcupado))]
+    private async Task CapturarUbicacionAsync()
+    {
+        EstaOcupado = true;
+        MensajeEstado = "Obteniendo coordenadas GPS...";
+        ColorEstado = Colors.DodgerBlue;
+
+        try
+        {
+            var resultado = await _hardwareService.ObtenerUbicacionActualAsync();
+            if (resultado.Exitoso && !string.IsNullOrWhiteSpace(resultado.Datos))
+            {
+                UbicacionCapturada = resultado.Datos;
+                MensajeEstado = $"{resultado.Mensaje} ({resultado.Datos})";
+                ColorEstado = Colors.ForestGreen;
+            }
+            else
+            {
+                MensajeEstado = resultado.Mensaje;
+                ColorEstado = Colors.DarkOrange;
+            }
+        }
+        finally
+        {
+            EstaOcupado = false;
+        }
+    }
+
     /// <summary>
-    /// Orquesta la petición asíncrona a la API REST de publicaciones, actualizando los estados visuales,
-    /// poblando la colección <see cref="Posts"/> y mapeando la respuesta del servicio con códigos de color contextuales.
+    /// Orquesta la petición asíncrona a la API REST de publicaciones y respaldo local SQLite,
+    /// actualizando los estados visuales, poblando la colección <see cref="Posts"/> y mapeando la respuesta.
     /// Genera automáticamente la propiedad pública <c>CargarPostsCommand</c> de tipo <see cref="IAsyncRelayCommand"/>.
     /// </summary>
     /// <returns>Tarea asíncrona que representa el ciclo completo de consulta y actualización de interfaz.</returns>
@@ -106,7 +180,9 @@ public partial class MainViewModel : ObservableObject
                 }
 
                 MensajeEstado = resultado.Mensaje;
-                ColorEstado = Colors.ForestGreen; // Verde para éxito
+                ColorEstado = resultado.Mensaje.Contains("offline", StringComparison.OrdinalIgnoreCase)
+                    ? Colors.DarkOrange
+                    : Colors.ForestGreen;
             }
             else
             {
@@ -145,6 +221,8 @@ public partial class MainViewModel : ObservableObject
                 UserId = 1,
                 Title = NuevoTitulo.Trim(),
                 Body = NuevoCuerpo.Trim(),
+                RutaImagenLocal = RutaImagenAdjunta,
+                UbicacionGps = UbicacionCapturada,
                 EsFavorito = true
             };
 
@@ -155,9 +233,14 @@ public partial class MainViewModel : ObservableObject
                 Posts.Insert(0, resultado.Datos);
                 NuevoTitulo = string.Empty;
                 NuevoCuerpo = string.Empty;
+                RutaImagenAdjunta = null;
+                UbicacionCapturada = null;
                 MostrarFormulario = false;
                 MensajeEstado = resultado.Mensaje;
                 ColorEstado = Colors.SeaGreen;
+
+                // Retroalimentación háptica al persistir correctamente en SQLite
+                _hardwareService.VibrarConfirmacion();
             }
             else
             {
