@@ -27,6 +27,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<HttpClient>();
         builder.Services.AddSingleton<IPostRepository, PostRepositorySQLite>();
         builder.Services.AddSingleton<IPostService, PostService>();
+        builder.Services.AddSingleton<IHardwareService, HardwareService>();
 
 
         // 2. Capa de Presentación - ViewModels (Transient: instancia limpia por pantalla)
