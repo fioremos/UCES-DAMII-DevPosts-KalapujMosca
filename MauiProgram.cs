@@ -1,6 +1,8 @@
-﻿using DevPostsApp.Services;
+﻿using DevPostsApp.Repositories;
+using DevPostsApp.Services;
 using DevPostsApp.ViewModels;
 using DevPostsApp.Views;
+using Microsoft.Extensions.Logging;
 
 namespace DevPostsApp;
 
@@ -17,9 +19,15 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
+#if DEBUG
+        builder.Logging.AddDebug();
+#endif
+
         // 1. Capa de Red y Servicios (Singleton: instancia única compartida)
         builder.Services.AddSingleton<HttpClient>();
+        builder.Services.AddSingleton<IPostRepository, PostRepositorySQLite>();
         builder.Services.AddSingleton<IPostService, PostService>();
+
 
         // 2. Capa de Presentación - ViewModels (Transient: instancia limpia por pantalla)
         builder.Services.AddTransient<MainViewModel>();
