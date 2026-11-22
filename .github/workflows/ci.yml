@@ -1,0 +1,77 @@
+name: CI - DevPostsApp (.NET 10 MAUI & xUnit)
+
+on:
+  push:
+    branches: [ "main", "feature/**", "docs/**", "chore/**"  ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  SOLUTION_PATH: 'DevPostsApp.slnx'
+  TEST_PROJECT: 'DevPostsApp.Tests/DevPostsApp.Tests.csproj'
+  MAIN_PROJECT: 'DevPostsApp.csproj'
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar .NET SDK ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Caché explícita de NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Instalar workloads de .NET MAUI
+        run: dotnet workload install maui-android
+
+      - name: Restaurar dependencias de la solución
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Compilar librería base y proyecto de pruebas (Release)
+        run: dotnet build ${{ env.TEST_PROJECT }} --configuration Release --no-restore
+
+      - name: Ejecutar suite de pruebas unitarias e integración (xUnit)
+        run: >
+          dotnet test ${{ env.TEST_PROJECT }}
+          --configuration Release
+          --no-build
+          --verbosity normal
+          --logger "trx;LogFileName=test-results-${{ matrix.os }}.trx"
+          --results-directory ./TestResults
+
+      - name: Publicar artefactos compilados de la librería base
+        run: >
+          dotnet publish ${{ env.MAIN_PROJECT }}
+          -f net10.0
+          -c Release
+          -o ./artifacts/${{ matrix.os }}
+
+      - name: Subir artefactos de compilación y reportes de tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devposts-ci-${{ matrix.os }}
+          path: |
+            ./TestResults/*.trx
+            ./artifacts/${{ matrix.os }}/
+          retention-days: 14
