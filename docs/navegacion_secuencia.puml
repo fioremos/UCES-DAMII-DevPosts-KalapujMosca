@@ -27,7 +27,7 @@ DetalleViewModel -> DetalleViewModel : Extrae "PostSeleccionado" y asigna a Post
 DetalleViewModel --> DetallePage : Notifica cambio vía PropertyChanged
 deactivate DetalleViewModel
 
-DetallePage --> Usuario : Renderiza publicación completa (Id, Autor, Title, Body)
+DetallePage --> Usuario : Renderiza publicación completa (Id, Autor, Title, Body, UbicacionGps, RutaImagenLocal)
 
 == Retorno al Listado ==
 Usuario -> DetallePage : Toca "← Volver al Listado"
