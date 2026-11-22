@@ -48,7 +48,10 @@ jobs:
 
       - name: Compilar librería base y proyecto de pruebas (Release)
         run: dotnet build ${{ env.TEST_PROJECT }} --configuration Release --no-restore
-
+      
+      - name: Compilar aplicación Android (Release)
+        run: dotnet build ${{ env.MAIN_PROJECT }} -f net10.0-android -c Release --no-restore
+        
       - name: Ejecutar suite de pruebas unitarias e integración (xUnit)
         run: >
           dotnet test ${{ env.TEST_PROJECT }}

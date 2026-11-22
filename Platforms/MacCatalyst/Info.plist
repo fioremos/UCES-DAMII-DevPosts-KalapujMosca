@@ -36,5 +36,11 @@
 	</array>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
+	<key>NSCameraUsageDescription</key>
+	<string>DevPosts Reader necesita acceder a la cámara para adjuntar fotografías.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>DevPosts Reader necesita acceder a la galería para seleccionar imágenes.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>DevPosts Reader utiliza tu ubicación para georreferenciar publicaciones.</string>
 </dict>
 </plist>
