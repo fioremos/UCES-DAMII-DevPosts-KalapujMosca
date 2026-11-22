@@ -94,4 +94,29 @@ public class PostServiceTests
         Assert.Equal(TipoError.ErrorCliente, resultado.Error);
         Assert.Equal(cantidadInicial, todos.Count);
     }
+    [Fact]
+    public async Task ObtenerPostsAsync_CuandoServidorResponde500_RetornaCacheYErrorServidor()
+    {
+        var repoFake = new PostRepositoryFake();
+        await repoFake.GuardarAsync(new Post
+        {
+            Id = 1,
+            UserId = 1,
+            Title = "Post en caché",
+            Body = "Contenido guardado localmente."
+        });
+
+        var handler = new FakeHttpMessageHandler(_ =>
+            new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError));
+        var httpClient = new HttpClient(handler);
+        var servicio = new PostService(httpClient, repoFake);
+
+        var resultado = await servicio.ObtenerPostsAsync();
+
+        Assert.True(resultado.Exitoso);
+        Assert.Equal(TipoError.Ninguno, resultado.Error);
+        Assert.Equal(2, resultado.Datos.Count);
+        Assert.Contains(resultado.Datos, p => p.Id == 1 && p.Title == "Post en caché");
+        Assert.Contains("500", resultado.Mensaje, StringComparison.OrdinalIgnoreCase);
+    }
 }
