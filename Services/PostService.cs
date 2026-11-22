@@ -93,8 +93,17 @@ public class PostService : IPostService
             nuevoPost.Id = existentes.Count > 0 ? existentes.Max(p => p.Id) + 1 : 101;
         }
 
-        await _postRepository.GuardarAsync(nuevoPost);
-        return ResultadoOperacion<Post>.Ok(nuevoPost, "Publicación guardada correctamente en SQLite.");
+        try
+        {
+            await _postRepository.GuardarAsync(nuevoPost);
+            return ResultadoOperacion<Post>.Ok(nuevoPost, "Publicación guardada localmente.");
+        }
+        catch (Exception ex)
+        {
+            return ResultadoOperacion<Post>.Fallo(
+                $"No se pudo guardar la publicación: {ex.Message}",
+                TipoError.ErrorPersistencia);
+        }
     }
 
     private async Task<ResultadoOperacion<List<Post>>> RecuperarDesdeCacheLocalAsync(
