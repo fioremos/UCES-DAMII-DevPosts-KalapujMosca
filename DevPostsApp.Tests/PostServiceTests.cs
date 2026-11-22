@@ -95,7 +95,7 @@ public class PostServiceTests
         Assert.Equal(cantidadInicial, todos.Count);
     }
     [Fact]
-    public async Task ObtenerPostsAsync_CuandoServidorResponde500_RetornaCacheYErrorServidor()
+    public async Task ObtenerPostsAsync_CuandoServidorResponde500_RetornaCacheAnteErrorServidor()
     {
         var repoFake = new PostRepositoryFake();
         await repoFake.GuardarAsync(new Post
@@ -118,5 +118,33 @@ public class PostServiceTests
         Assert.Equal(2, resultado.Datos.Count);
         Assert.Contains(resultado.Datos, p => p.Id == 1 && p.Title == "Post en caché");
         Assert.Contains("500", resultado.Mensaje, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+public async Task CrearPostLocalAsync_CuandoRepositorioFalla_RetornaErrorPersistencia()
+{
+    var repoConFallo = new PostRepositoryConFallo();
+    var servicio = new PostService(new HttpClient(), repoConFallo);
+    var postValido = new Post
+    {
+        UserId = 1,
+        Title = "Título válido para prueba",
+        Body = "Contenido suficientemente largo para pasar la validación de dominio."
+    };
+
+    var resultado = await servicio.CrearPostLocalAsync(postValido);
+
+    Assert.False(resultado.Exitoso);
+    Assert.Equal(TipoError.ErrorPersistencia, resultado.Error);
+    Assert.Contains("No se pudo guardar", resultado.Mensaje, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class PostRepositoryConFallo : IPostRepository
+    {
+        public Task<List<Post>> ObtenerTodosAsync() => Task.FromResult(new List<Post>());
+        public Task<Post?> ObtenerPorIdAsync(int id) => Task.FromResult<Post?>(null);
+        public Task<int> GuardarAsync(Post post) => throw new InvalidOperationException("Fallo simulado de disco/SQLite.");
+        public Task GuardarLoteAsync(IEnumerable<Post> posts) => throw new InvalidOperationException("Fallo simulado de disco/SQLite.");
+        public Task<int> EliminarAsync(Post post) => throw new InvalidOperationException("Fallo simulado de disco/SQLite.");
     }
 }

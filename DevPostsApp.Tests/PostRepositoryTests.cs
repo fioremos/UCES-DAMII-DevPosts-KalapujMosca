@@ -11,6 +11,13 @@ public class PostRepositoryTests
     public async Task GuardarAsync_PostConHardwareMetadata_DebePersistirYRecuperarCorrectamente()
     {
         var repo = new PostRepositorySQLite(RutaDbEnMemoria);
+
+        var existentes = await repo.ObtenerTodosAsync();
+        foreach (var item in existentes)
+        {
+            await repo.EliminarAsync(item);
+        }
+
         var post = new Post
         {
             Id = 500,
@@ -36,6 +43,14 @@ public class PostRepositoryTests
     public async Task GuardarLoteAsync_VariosPosts_DebeInsertarTodosSinDuplicados()
     {
         var repo = new PostRepositorySQLite(RutaDbEnMemoria);
+
+        var existentes = await repo.ObtenerTodosAsync();
+        foreach (var item in existentes)
+        {
+            await repo.EliminarAsync(item);
+        }
+
+
         var lote = new List<Post>
         {
             new() { Id = 1, UserId = 1, Title = "Primer post", Body = "Cuerpo del primer post." },
@@ -48,7 +63,7 @@ public class PostRepositoryTests
 
         var todos = await repo.ObtenerTodosAsync();
 
-        Assert.Equal(3, todos.Count);
+        Assert.Equal(2, todos.Count);
         Assert.Contains(todos, p => p.Id == 1 && p.Title == "Primer post actualizado");
     }
 }
