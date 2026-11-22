@@ -19,39 +19,113 @@ package "Views" {
 
 package "ViewModels" {
     class MainViewModel {
-        - _postService : IPostService
-        - _estaOcupado : bool
-        - _mensajeEstado : string
-        - _colorEstado : Color
+- _postService : IPostService
+- _hardwareService : IHardwareService
+- _estaOcupado : bool
+- _mensajeEstado : string
+- _colorEstado : Color
+- _mostrarFormulario : bool
+- _nuevoTitulo : string
+- _nuevoCuerpo : string
+- _rutaImagenAdjunta : string?
+- _ubicacionCapturada : string?
         + Posts : ObservableCollection<Post>
         + EstaOcupado : bool
         + NoEstaOcupado : bool
         + MensajeEstado : string
         + ColorEstado : Color
+        + MostrarFormulario : bool
+        + NuevoTitulo : string
+        + NuevoContenido : string
+        + RutaImagenAdjunta : string?
+        + UbicacionCapturada : string?
         + CargarPostsCommand : IAsyncRelayCommand
         + SeleccionarPostCommand : IAsyncRelayCommand<Post?>
-        - CargarPostsAsync() : Task
-        - SeleccionarPostAsync(post : Post?) : Task
+        + AlternarFormularioCommand : IRelayCommand
+        + AdjuntarFotoCommand : IAsyncRelayCommand
+        + CapturarUbicacionCommand : IAsyncRelayCommand
+        + CrearPostCommand : IAsyncRelayCommand
+- CargarPostsAsync() : Task
+- SeleccionarPostAsync(post : Post?) : Task
+- AdjuntarFotoAsync() : Task
+- CapturarUbicacionAsync() : Task
+- CrearPostAsync() : Task
     }
 
     class DetalleViewModel << (C,#ADD1B2) IQueryAttributable >> {
-        - _post : Post?
+- _post : Post?
         + Post : Post?
         + VolverCommand : IAsyncRelayCommand
         + ApplyQueryAttributes(query : IDictionary<string, object>) : void
-        - VolverAsync() : Task
+- VolverAsync() : Task
     }
 }
 
 package "Services" {
     interface IPostService {
         + ObtenerPostsAsync() : Task<ResultadoOperacion<List<Post>>>
+        + CrearPostLocalAsync(nuevoPost : Post) : Task<ResultadoOperacion<Post>>
     }
+
     class PostService implements IPostService {
-        - _httpClient : HttpClient
-        - ApiUrl : string
+- _httpClient : HttpClient
+- _postRepository : IPostRepository
+- ApiUrl : string
         + ObtenerPostsAsync() : Task<ResultadoOperacion<List<Post>>>
-        - ClasificarErrorHttp(codigo : HttpStatusCode) : ResultadoOperacion<List<Post>>
+        + CrearPostLocalAsync(nuevoPost : Post) : Task<ResultadoOperacion<Post>>
+- ClasificarErrorHttp(codigo : HttpStatusCode) : ResultadoOperacion<List<Post>>
+    }
+
+    interface IHardwareService {
+        + CapturarOSeleccionarFotoAsync() : Task<ResultadoOperacion<string>>
+        + ObtenerUbicacionActualAsync() : Task<ResultadoOperacion<string>>
+        + VibrarConfirmacion(milisegundos : int) : void
+    }
+
+    class HardwareService implements IHardwareService {
+- _logger : ILogger<HardwareService>
+        + CapturarOSeleccionarFotoAsync() : Task<ResultadoOperacion<string>>
+        + ObtenerUbicacionActualAsync() : Task<ResultadoOperacion<string>>
+        + VibrarConfirmacion(milisegundos : int) : void
+    }
+}
+
+package "Repositories" {
+    interface IPostRepository {
+        + ObtenerTodosAsync() : Task<List<Post>>
+        + ObtenerPorIdAsync(id : int) : Task<Post?>
+        + GuardarAsync(post : Post) : Task
+        + GuardarLoteAsync(posts : IEnumerable<Post>) : Task
+        + EliminarAsync(post : Post) : Task
+    }
+
+    class PostRepositorySQLite implements IPostRepository {
+- _database : SQLiteAsyncConnection
+- _inicializado : bool
+- AsegurarTablaAsync() : Task
+        + ObtenerTodosAsync() : Task<List<Post>>
+        + ObtenerPorIdAsync(id : int) : Task<Post?>
+        + GuardarAsync(post : Post) : Task
+        + GuardarLoteAsync(posts : IEnumerable<Post>) : Task
+    }
+
+    class PostRepositoryFake implements IPostRepository {
+- _postsEnMemoria : List<Post>
+        + ObtenerTodosAsync() : Task<List<Post>>
+        + ObtenerPorIdAsync(id : int) : Task<Post?>
+        + GuardarAsync(post : Post) : Task
+        + GuardarLoteAsync(posts : IEnumerable<Post>) : Task
+    }
+}
+
+package "Validators" {
+    class ValidadorPost << (S,#FF7700) static >> {
+        + {static} LongitudMinimaTitulo : int
+        + {static} LongitudMaximaTitulo : int
+        + {static} LongitudMinimaCuerpo : int
+        + {static} Validar(post : Post?, out mensajeError : string) : bool
+        + {static} EsTituloValido(titulo : string?) : bool
+        + {static} EsCuerpoValido(cuerpo : string?) : bool
     }
 }
 
@@ -61,6 +135,9 @@ package "Models" {
         + UserId : int
         + Title : string
         + Body : string
+        + RutaImagenLocal : string?
+        + UbicacionGps : string?
+        + EsFavorito : bool
     }
 
     class "ResultadoOperacion<T>" as ResultadoOperacion {
@@ -81,6 +158,12 @@ package "Models" {
     }
 }
 
+package "DevPostsApp.Tests (xUnit)" {
+    class ValidadorPostTests
+    class PostRepositoryTests
+    class PostServiceTests
+}
+
 ' Herencias de MVVM Toolkit
 ObservableObject <|-- MainViewModel
 ObservableObject <|-- DetalleViewModel
@@ -91,13 +174,25 @@ DetallePage ..> DetalleViewModel : Data Binding / DI
 
 ' Dependencias de ViewModels
 MainViewModel --> IPostService : Inyección por constructor
+MainViewModel --> IHardwareService : Inyección por constructor
 MainViewModel o-- Post : Colección reactiva
 MainViewModel ..> IAsyncRelayCommand : Expone comandos
 DetalleViewModel o-- Post : Expone modelo puro
 DetalleViewModel ..> IAsyncRelayCommand : Expone comando
 
-' Capa de Servicio y Dominio
-PostService ..> Post : Deserializa JSON
+' Capa de Servicio, Repositorio y Dominio
+PostService --> IPostRepository : Persistencia Offline-First
+PostService ..> ValidadorPost : Valida reglas de dominio
+PostService ..> Post : Deserializa / Persiste
 PostService ..> ResultadoOperacion : Retorna
+HardwareService ..> ResultadoOperacion : Retorna
+PostRepositorySQLite ..> Post : Mapea tabla SQLite
+PostRepositoryFake ..> Post : Simula en memoria
 ResultadoOperacion --> TipoError : Clasifica con
+
+' Pruebas Automatizadas
+ValidadorPostTests ..> ValidadorPost : Pruebas unitarias
+PostRepositoryTests ..> PostRepositorySQLite : SQLite aislado
+PostServiceTests ..> PostService : Pruebas Offline-First
+PostServiceTests ..> PostRepositoryFake : Doble de prueba
 @enduml
