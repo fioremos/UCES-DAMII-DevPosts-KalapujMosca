@@ -12,6 +12,7 @@ env:
   SOLUTION_PATH: 'DevPostsApp.slnx'
   TEST_PROJECT: 'DevPostsApp.Tests/DevPostsApp.Tests.csproj'
   MAIN_PROJECT: 'DevPostsApp.csproj'
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
   build-and-test:
@@ -30,13 +31,11 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-          cache: true
-          cache-dependency-path: '**/packages.lock.json'
 
-      - name: Caché explícita de NuGet
+      - name: Caché de paquetes NuGet
         uses: actions/cache@v4
         with:
-          path: ~/.nuget/packages
+          path: ${{ env.NUGET_PACKAGES }}
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
