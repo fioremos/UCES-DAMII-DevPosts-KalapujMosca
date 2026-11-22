@@ -9,7 +9,8 @@ public enum TipoError
     SinConexion,      // Problema de conectividad o timeout
     ErrorServidor,    // Errores HTTP 500, 503, etc.
     ErrorCliente,     // Errores HTTP 400, 404, etc.
-    FormatoInvalido   // Error al deserializar JSON corrupto
+    FormatoInvalido,  // Error al deserializar JSON corrupto
+    ErrorPersistencia  // Problema al guardar o recuperar datos localmente
 }
 
 /// <summary>

@@ -5,13 +5,19 @@ namespace DevPostsApp.Tests;
 
 public class PostRepositoryTests
 {
-    private static string CrearRutaDbTemporal() =>
-        Path.Combine(Path.GetTempPath(), $"devposts_test_{Guid.NewGuid():N}.db3");
+    private const string RutaDbEnMemoria = ":memory:";
 
     [Fact]
     public async Task GuardarAsync_PostConHardwareMetadata_DebePersistirYRecuperarCorrectamente()
     {
-        var repo = new PostRepositorySQLite(CrearRutaDbTemporal());
+        var repo = new PostRepositorySQLite(RutaDbEnMemoria);
+
+        var existentes = await repo.ObtenerTodosAsync();
+        foreach (var item in existentes)
+        {
+            await repo.EliminarAsync(item);
+        }
+
         var post = new Post
         {
             Id = 500,
@@ -36,7 +42,15 @@ public class PostRepositoryTests
     [Fact]
     public async Task GuardarLoteAsync_VariosPosts_DebeInsertarTodosSinDuplicados()
     {
-        var repo = new PostRepositorySQLite(CrearRutaDbTemporal());
+        var repo = new PostRepositorySQLite(RutaDbEnMemoria);
+
+        var existentes = await repo.ObtenerTodosAsync();
+        foreach (var item in existentes)
+        {
+            await repo.EliminarAsync(item);
+        }
+
+
         var lote = new List<Post>
         {
             new() { Id = 1, UserId = 1, Title = "Primer post", Body = "Cuerpo del primer post." },

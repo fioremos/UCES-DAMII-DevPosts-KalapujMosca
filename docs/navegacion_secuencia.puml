@@ -8,7 +8,7 @@ boundary DetallePage as "DetallePage (UI)"
 control DetalleViewModel as "DetalleViewModel"
 
 == Navegación hacia el Detalle ==
-Usuario -> MainPage : Toca tarjeta de publicación (SelectionChanged)
+Usuario -> MainPage : Toca tarjeta de publicación (TapGestureRecognizer)
 MainPage -> MainViewModel : Ejecuta SeleccionarPostCommand(post)
 activate MainViewModel
 

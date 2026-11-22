@@ -34,7 +34,7 @@ Define la estructura visual y distribución de los elementos de la interfaz de u
 Actúa como intermediario de presentación entre la Vista y los servicios de la aplicación.
 - **Componentes:** `ViewModels/MainViewModel.cs` y `ViewModels/DetalleViewModel.cs` (ambos heredando de `ObservableObject`).
 - **Responsabilidades y uso del Toolkit:**
-  - **Notificación de Cambios y Source Generators:** Se utiliza la clase base `ObservableObject` y el atributo `[ObservableProperty]` sobre campos de respaldo privados (`_estaOcupado`, `_mensajeEstado`, `_colorEstado`, `_mostrarFormulario`, `_nuevoTitulo`, `_nuevoContenido`, `_rutaImagenAdjunta`, `_ubicacionCapturada`, `_post`). El compilador genera automáticamente en tiempo de compilación las propiedades públicas con notificación reactiva `PropertyChanged`.
+  - **Notificación de Cambios y Source Generators:** Se utiliza la clase base `ObservableObject` y el atributo `[ObservableProperty]` sobre campos de respaldo privados (`_estaOcupado`, `_mensajeEstado`, `_colorEstado`, `_mostrarFormulario`, `_nuevoTitulo`, `_nuevoCuerpo`, `_rutaImagenAdjunta`, `_ubicacionCapturada`, `_post`). El compilador genera automáticamente en tiempo de compilación las propiedades públicas con notificación reactiva `PropertyChanged`.
   - **Comandos Declarativos:** Mediante `[RelayCommand]`, los métodos síncronos y asíncronos (`CargarPostsAsync`, `SeleccionarPostAsync`, `AlternarFormulario`, `AdjuntarFotoAsync`, `CapturarUbicacionAsync`, `CrearPostAsync`, `VolverAsync`) se exponen a la vista como comandos (`IRelayCommand` / `IAsyncRelayCommand`), gestionando la concurrencia y el estado de habilitación de controles.
   - **Orquestación:** Coordina la obtención/creación de publicaciones (`IPostService`) y la captura de sensores (`IHardwareService`), formateando el feedback visual y háptico para el usuario.
 
@@ -61,7 +61,7 @@ El uso de una interfaz permite desacoplar los consumidores (ViewModels) de la im
   * Errores de conectividad de bajo nivel y tiempo de espera (`HttpRequestException`, `TaskCanceledException`).
   * Respuestas erróneas del protocolo HTTP (`4xx` para errores de cliente, `5xx` para errores de servidor) mediante la envoltura `ResultadoOperacion<T>` y la enumeración `TipoError`.
 * Deserializa la carga útil en formato JSON hacia colecciones de objetos C# mediante `System.Text.Json` con opciones de insensibilidad a mayúsculas/minúsculas.
-* **Sincronización y Respaldo Local (*Offline-First*):** Cuando la consulta a JSONPlaceholder es exitosa, persiste el lote actualizado en SQLite mediante `IPostRepository.GuardarLoteAsync(...)` sin sobrescribir publicaciones creadas localmente. Ante errores de red (`SinConexion`) o fallos del servidor (`ErrorServidor`), recupera automáticamente los registros cacheados en la base local para garantizar continuidad operativa sin conexión.
+* **Sincronización y Respaldo Local (*Offline-First*):** Cuando la consulta a JSONPlaceholder es exitosa, persiste el lote actualizado en SQLite mediante `IPostRepository.GuardarLoteAsync(...)` sin eliminar las publicaciones locales durante el lote remoto. Ante errores de red (`SinConexion`) o fallos del servidor (`ErrorServidor`), recupera automáticamente los registros cacheados en la base local para garantizar continuidad operativa sin conexión.
 * **Creación Local Validada:** En `CrearPostLocalAsync`, ejecuta `ValidadorPost.Validar(...)` antes de persistir en SQLite, rechazando entidades inconsistentes con `TipoError.ErrorCliente`.
 
 ### 3.3 Patrón Repositorio y Persistencia Local (`IPostRepository`)
